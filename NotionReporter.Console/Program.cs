@@ -4,11 +4,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NotionReporter.Core.Services;
 
-// ToDo: Get Notion Data
-// ToDo: Generate CSVs
-// ToDo: Generate Graphs? 
 // ToDo: Report Customisation UI? 
-// ToDo: DI? 
+// ToDo: Refine the queries to Notion
+// ToDo: plot Members Meeting Attendance
 
 var serviceProvider = new ServiceCollection()
     .AddSingleton<IConfiguration>(new ConfigurationBuilder()
@@ -21,12 +19,12 @@ var config = serviceProvider.GetService<IConfiguration>() ?? throw new ArgumentN
 
 var integrationSecret = config.GetValue<string>("IntegrationSecret") ?? throw new ArgumentNullException($"IntegrationSecret");
 var membersPageId = config.GetValue<string>("MembersPageId") ?? throw new ArgumentNullException($"MembersPageId");
+var eventsPageId = config.GetValue<string>("EventsPageId") ?? throw new ArgumentNullException($"EventsPageId");
 
-var notionService = new NotionService(integrationSecret, membersPageId);
+var notionService = new NotionService(integrationSecret, membersPageId, eventsPageId);
 
 var members = await notionService.GetMembers();
 
-foreach (var member in members)
-{
-    Console.WriteLine(member.Name);
-}
+PlotService.GeneratePlots(members);
+
+Console.WriteLine("Done");

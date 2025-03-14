@@ -3,7 +3,7 @@
 using System.Text.Json.Serialization;
 
 // It feels easier to just query everything and handle it in linq, rather than mess around with the notion query schema - which is why most of these are unused
-// I should probably be more YAGNE but yolo
+// I should probably be more YAGNE but yolo - I might need to think about it a bit harder if performance demands it
 public class QueryBody
 {
     [JsonPropertyName("filter")]
