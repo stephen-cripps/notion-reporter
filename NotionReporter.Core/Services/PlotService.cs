@@ -72,6 +72,9 @@ public static class PlotService
 
         // tell the plot to autoscale with no padding beneath the bars
         plot.Axes.Margins(bottom: 0, top: .3);
+        
+        plot.YLabel("Events Attended");
+        plot.Title("Events Attended by Members");
 
         // ToDo: Appsetting this
         plot.SavePng("C:\\Users\\StephenCripps\\Desktop\\NotionReports\\attendance.png", 1800, 800);
@@ -84,8 +87,9 @@ public static class PlotService
             .ToList();
 
         var plot = new Plot();
-        IPalette palette = new ScottPlot.Palettes.LightOcean();
-
+        IPalette amberPalette = new ScottPlot.Palettes.Amber();
+        IPalette frostPalette = new ScottPlot.Palettes.Frost();
+        
         double minValue = members.Min(x => x.PastSixWeeks - x.PrevSixWeeks);
         double maxValue = members.Max(x => x.PastSixWeeks - x.PrevSixWeeks);
 
@@ -98,9 +102,10 @@ public static class PlotService
 
             // Map the value to a color in the palette
             var normalizedValue = (value - minValue) / (maxValue - minValue);
-            var colorIndex = (int)(normalizedValue * 9);
-            var barColor = palette.GetColor(colorIndex);
-
+            var colorIndex = (int)(normalizedValue * 4); 
+            
+            var barColor = value < 0 ? amberPalette.GetColor(colorIndex) : frostPalette.GetColor(colorIndex);
+            
             Bar bar = new(){ Value = value, Position = i, FillColor = barColor };
 
             plot.Add.Bar(bar);
@@ -116,14 +121,16 @@ public static class PlotService
         plot.FormatAxes();
 
         plot.Axes.Margins(bottom: .3, top: .3);
+        
+        plot.YLabel("Change in Attendance");
+        plot.Title("Change in Attendance");
+
         plot.SavePng("C:\\Users\\StephenCripps\\Desktop\\NotionReports\\change.png", 1800, 800);
     }
 
     private static void FormatAxes(this Plot plot)
     {
         plot.XLabel("Members");
-        plot.YLabel("Events Attended");
-        plot.Title("Events Attended by Members");
 
         plot.Axes.Bottom.TickLabelStyle.Rotation = -45;
         plot.Axes.Bottom.TickLabelStyle.Alignment = Alignment.MiddleRight;
