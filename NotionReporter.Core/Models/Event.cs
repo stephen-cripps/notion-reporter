@@ -12,6 +12,8 @@ public record Event
     
     public List<string?> MembersAttended { get; init; }
     
+    public List<string?> Tags { get; init; }
+    
     public Event(JsonElement jsonElement)
     {
         Id = jsonElement.GetProperty("id").GetString();
@@ -48,6 +50,12 @@ public record Event
             .GetProperty("relation")
             .EnumerateArray()
             .Select(element => element.GetProperty("id").GetString()));
-
+        
+        Tags = jsonElement.GetProperty("properties")
+            .GetProperty("Tags")
+            .GetProperty("multi_select")
+            .EnumerateArray()
+            .Select(element => element.GetProperty("name").GetString())
+            .ToList();
     }
 };
