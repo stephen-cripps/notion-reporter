@@ -27,9 +27,6 @@ public class NotionService
     {
         var nextCursor = "0";
         var members = new List<Member>();
-        
-        var events = await GetEvents();
-
         do
         {
             var body = new QueryBody(){ StartCursor = nextCursor, };
@@ -48,7 +45,7 @@ public class NotionService
             members.AddRange(rootElement
                 .GetProperty("results")
                 .EnumerateArray()
-                .Select(element => new Member(element, events)));
+                .Select(element => new Member(element)));
 
             nextCursor = rootElement.GetProperty("next_cursor").GetString();
         } while (!string.IsNullOrEmpty(nextCursor));
@@ -56,7 +53,7 @@ public class NotionService
         return members;
     }
 
-    private async Task<List<Event>> GetEvents()
+    public async Task<List<Event>> GetEvents()
     {
         var nextCursor = "0";
         var events = new List<Event>();

@@ -5,21 +5,22 @@ using ScottPlot;
 
 public static class PlotService
 {
-    public static void GeneratePlots(List<Member> members)
+    public static void GeneratePlots(List<Member> members, List<Event> events,  string plotFolder)
     {
         var memberPlotData = members
             .Select(m => new MemberPlotData(
                     m.Name ?? "",
-                    GetAttendance(m, 0, 6),
-                    GetAttendance(m, 6, 12)
+                    GetAttendance(m, events,0, 6),
+                    GetAttendance(m, events, 6, 12)
                 )
             ).ToList();
 
-        PlotAttendance(memberPlotData);
-        PlotChangeInAttendance(memberPlotData);
+        PlotAttendance(memberPlotData, plotFolder);
+        PlotChangeInAttendance(memberPlotData, plotFolder);
+        PlotMembersMeetingAttendance(events, plotFolder);
     }
 
-    private static void PlotAttendance(List<MemberPlotData> members)
+    private static void PlotAttendance(List<MemberPlotData> members, string plotFolder)
     {
         members = members
             .OrderByDescending(x => x.PastSixWeeks + x.PrevSixWeeks)
@@ -76,11 +77,14 @@ public static class PlotService
         plot.YLabel("Events Attended");
         plot.Title("Events Attended by Members");
 
-        // ToDo: Appsetting this
-        plot.SavePng("C:\\Users\\StephenCripps\\Desktop\\NotionReports\\attendance.png", 1800, 800);
+        var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
+        
+        var filePath = Path.Combine(plotFolder, $"attendance_{formattedDate}.png");
+        
+        plot.SavePng(filePath, 1800, 800);
     }
 
-    private static void PlotChangeInAttendance(List<MemberPlotData> members)
+    private static void PlotChangeInAttendance(List<MemberPlotData> members, string plotFolder)
     {
         members = members
             .OrderByDescending(x => x.PastSixWeeks - x.PrevSixWeeks)
@@ -124,8 +128,54 @@ public static class PlotService
         
         plot.YLabel("Change in Attendance");
         plot.Title("Change in Attendance");
+        
+        var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
+        
+        var filePath = Path.Combine(plotFolder, $"change_{formattedDate}.png");
 
-        plot.SavePng("C:\\Users\\StephenCripps\\Desktop\\NotionReports\\change.png", 1800, 800);
+        plot.SavePng(filePath, 1800, 800);
+    }
+
+    private static void PlotMembersMeetingAttendance(List<Event> events, string plotFolder)
+    {
+        var plot = new Plot();
+        
+        // ToDo - should use a tag for this
+        var membersMeetings = events
+            .Where(x => x.Name?.Contains("Members Meeting") == true)
+            .Where(x => x.MembersAttended.Count >0)
+            .OrderByDescending(x => x.Date)
+            .Reverse()
+            .ToList();
+        
+        var membersAttended = membersMeetings
+            .Select((x, i) => new Coordinates(i, x.MembersAttended.Count))
+            .ToList();
+        
+        var ticks = membersMeetings
+            .Select((x, i) => new Tick(i, x.Date.ToString("MMM yyyy")))
+            .ToArray();
+        
+        plot.Add.Scatter(membersAttended);
+        
+        plot.Axes.Bottom.TickGenerator = new ScottPlot.TickGenerators.NumericManual(ticks);
+        
+        plot.XLabel("Month");
+        plot.YLabel("Members Attended");
+        plot.Title("Members Meeting Attendance");
+        
+        // Y Axis whole numbers only and start from 0   
+        var tickGen = new ScottPlot.TickGenerators.NumericAutomatic{ IntegerTicksOnly = true };
+        plot.Axes.Left.TickGenerator = tickGen;
+        
+        var maxAttendance = membersMeetings.Select(x => x.MembersAttended.Count).Max();
+        plot.Axes.SetLimits(0, membersMeetings.Count, 0, maxAttendance);
+        
+        var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
+        
+        var filePath = Path.Combine(plotFolder, $"members_meeting_{formattedDate}.png");
+        
+        plot.SavePng(filePath, 1800, 800);
     }
 
     private static void FormatAxes(this Plot plot)
@@ -140,13 +190,13 @@ public static class PlotService
         plot.Axes.Left.TickGenerator  = tickGen;
     }
 
-    private static int GetAttendance(Member member, int weeksAgoStart, int weeksAgoEnd)
+    private static int GetAttendance(Member member, List<Event> events, int weeksAgoStart, int weeksAgoEnd)
     {
         var start = DateTime.Now.AddDays(-(7 * weeksAgoStart));
         var end = DateTime.Now.AddDays(-(7 * weeksAgoEnd));
 
         return member.EventsAttended?
-            .Where(e => e?.Date >= end && e?.Date < start)
-            .Count() ?? 0;
+            .Select(e => events.FirstOrDefault(x => x.Id == e))
+            .Count(e => e?.Date >= end && e?.Date < start) ?? 0;
     }
 }

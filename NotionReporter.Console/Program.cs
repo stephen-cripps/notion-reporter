@@ -20,11 +20,13 @@ var config = serviceProvider.GetService<IConfiguration>() ?? throw new ArgumentN
 var integrationSecret = config.GetValue<string>("IntegrationSecret") ?? throw new ArgumentNullException($"IntegrationSecret");
 var membersPageId = config.GetValue<string>("MembersPageId") ?? throw new ArgumentNullException($"MembersPageId");
 var eventsPageId = config.GetValue<string>("EventsPageId") ?? throw new ArgumentNullException($"EventsPageId");
+var plotFolder = config.GetValue<string>("PlotFolder") ?? throw new ArgumentNullException($"PlotFolder");
 
 var notionService = new NotionService(integrationSecret, membersPageId, eventsPageId);
 
 var members = await notionService.GetMembers();
+var events = await notionService.GetEvents();
 
-PlotService.GeneratePlots(members);
+PlotService.GeneratePlots(members, events, plotFolder);
 
 Console.WriteLine("Done");
