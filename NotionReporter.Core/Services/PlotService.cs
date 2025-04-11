@@ -87,6 +87,7 @@ public static class PlotService
     private static void PlotChangeInAttendance(List<MemberPlotData> members, string plotFolder)
     {
         members = members
+            .Where(x => x.PastSixWeeks + x.PrevSixWeeks > 0)
             .OrderByDescending(x => x.PastSixWeeks - x.PrevSixWeeks)
             .ToList();
 
@@ -142,7 +143,7 @@ public static class PlotService
         
         // ToDo - should use a tag for this
         var membersMeetings = events
-            .Where(x => x.Name?.Contains("Members Meeting") == true)
+            .Where(x => x.Tags.Contains("Members Meeting"))
             .Where(x => x.MembersAttended.Count >0)
             .OrderByDescending(x => x.Date)
             .Reverse()

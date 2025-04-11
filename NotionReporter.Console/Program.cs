@@ -30,15 +30,15 @@ PlotService.GeneratePlots(members, events, plotFolder);
 
 Console.WriteLine("Done");
 
-
-// Rough thing to get counts of crossing campaign attnedance
-members.Select(m => new
-{
-    m.Name,
-    EventsCount = m.EventsAttended
-        .Select(e => events.FirstOrDefault(ev => ev.Id == e))
-        .Count(e => e.Tags.Contains("Crossings Campaign"))
-}).Where(e => e.EventsCount > 0)
-    .OrderByDescending(m => m.EventsCount)
-    .ToList()
-    .ForEach(m => Console.WriteLine($"{m.Name} - {m.EventsCount}"));
+//
+// // Rough thing to get counts of crossing campaign attnedance
+// members.Select(m => new
+// {
+//     m.Name,
+//     EventsCount = m.EventsAttended
+//         .Select(e => events.FirstOrDefault(ev => ev.Id == e))
+//         .Count(e => e.Tags.Contains("Crossings Campaign"))
+// }).Where(e => e.EventsCount > 0)
+//     .OrderByDescending(m => m.EventsCount)
+//     .ToList()
+//     .ForEach(m => Console.WriteLine($"{m.Name} - {m.EventsCount}"));
