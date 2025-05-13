@@ -1,4 +1,6 @@
-﻿namespace NotionReporter.Core.Services;
+﻿using ScottPlot.Plottables;
+
+namespace NotionReporter.Core.Services;
 
 using Models;
 using ScottPlot;
@@ -180,23 +182,41 @@ public static class PlotService
     }
 
     // ToDo: Add gender splits
+    // ToDo: Add Event Type Legend
     private static void PlotTemporalAttendance(List<Event> events, string plotFolder)
     {
-        var filteredEvents = events.Where(e => e.MembersAttended.Count() >0).ToList();
+        var filteredEvents = events.Where(e => e.MembersAttended.Any()
+                                               && e.Date > DateTime.Today.AddDays(-90)
+                                               && e.Date<= DateTime.Now).ToList();
         var xs = filteredEvents.Select(e => e.Date.ToOADate()).ToArray();
         var ys = filteredEvents.Select(e => (double)e.MembersAttended.Count).ToArray();
-        var labels = filteredEvents.Select(e => e.Name ?? "").ToArray();
 
         var plot = new ScottPlot.Plot();
+
+        // Helps us to avoid overlapping labels
+        var takenXs = new List<Double>();
 
         for (var i = 0; i < xs.Length; i++)
         {
             var x = xs[i];
+
+            while (takenXs.Contains(x))
+            {
+                x++;
+            }
+            
+            takenXs.Add(x);
+            
             var y = ys[i];
-            var label = labels[i];
 
             var bar = plot.Add.Bar(x, y);
+            bar.Color = TagsToColour(filteredEvents[i].Tags);
+            
+            var text = plot.Add.Text(filteredEvents[i].Name ?? "", x-0.5, y+1);
+            text.LabelRotation = -60;
         }
+        
+        AddTagsLegend(plot);
 
         plot.Axes.DateTimeTicksBottom();
         
@@ -232,5 +252,52 @@ public static class PlotService
         return member.EventsAttended?
             .Select(e => events.FirstOrDefault(x => x.Id == e))
             .Count(e => e?.Date >= end && e?.Date < start) ?? 0;
+    }
+
+    private static Color TagsToColour(List<string> tags)
+    {
+        if (tags.Contains("Action"))
+        {
+            return Colors.C0;
+        }
+
+        if (tags.Contains("Outreach"))
+        {
+            return Colors.C1;
+        }
+
+        if (tags.Contains("Meeting"))
+        {
+            return Colors.C2;
+        }
+
+        if (tags.Contains("Social"))
+        {
+            return Colors.C3;
+        }
+
+        if (tags.Contains("Training"))
+        {
+            return Colors.C4;
+        }
+
+        return Colors.C5;
+    }
+
+    private static void AddTagsLegend(Plot plot)
+    {
+        plot.Legend.IsVisible = true;
+
+        List<LegendItem> items =
+        [
+            new() {LabelText = "Action", FillColor = Colors.C0},
+            new() {LabelText = "Outreach", FillColor = Colors.C1},
+            new() {LabelText = "Meeting", FillColor = Colors.C2},
+            new() {LabelText = "Social", FillColor = Colors.C3},
+            new() {LabelText = "Training", FillColor = Colors.C4},
+            new() {LabelText = "Other", FillColor = Colors.C5},
+        ];
+        
+        plot.ShowLegend(items, Alignment.UpperRight);
     }
 }
