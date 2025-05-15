@@ -5,6 +5,8 @@ namespace NotionReporter.Core.Services;
 using Models;
 using ScottPlot;
 
+// This is WET as hell - partly because I'm lazy, partly because I want to be able to tweak plots without messing with others. 
+// it could be refactored for sure.... but who's gonna do that? 
 public static class PlotService
 {
     public static void GeneratePlots(List<Member> members, List<Event> events, string plotFolder)
@@ -20,7 +22,8 @@ public static class PlotService
         PlotAttendance(memberPlotData, plotFolder);
         PlotChangeInAttendance(memberPlotData, plotFolder);
         PlotMembersMeetingAttendance(events, plotFolder);
-        PlotTemporalAttendance(events, plotFolder);
+        PlotAttendanceByType(events, plotFolder);
+        PlotAttendanceByGender(events, plotFolder, members);
     }
 
     private static void PlotAttendance(List<MemberPlotData> members, string plotFolder)
@@ -31,20 +34,22 @@ public static class PlotService
 
         var plot = new Plot();
 
-        string[] categoryNames =["Past 6 Weeks", "Previous 6 Weeks"];
-        Color[] categoryColors ={ Colors.C0, Colors.C1 };
+        string[] categoryNames = ["Past 6 Weeks", "Previous 6 Weeks"];
+        Color[] categoryColors = {Colors.C0, Colors.C1};
 
         // Generate Bars
         for (var i = 0; i < members.Count; i++)
         {
             var member = members[i];
-            int[] values =[member.PastSixWeeks, member.PrevSixWeeks];
+            int[] values = [member.PastSixWeeks, member.PrevSixWeeks];
             double nextBarBase = 0;
 
             for (var j = 0; j < 2; j++)
             {
-                Bar bar = new(){
-                    Value = nextBarBase + values[j], FillColor = categoryColors[j], ValueBase = nextBarBase, Position = i,
+                Bar bar = new()
+                {
+                    Value = nextBarBase + values[j], FillColor = categoryColors[j], ValueBase = nextBarBase,
+                    Position = i,
                 };
 
                 plot.Add.Bar(bar);
@@ -67,7 +72,7 @@ public static class PlotService
         // display groups in the legend
         for (var i = 0; i < 2; i++)
         {
-            LegendItem item = new(){ LabelText = categoryNames[i], FillColor = categoryColors[i] };
+            LegendItem item = new() {LabelText = categoryNames[i], FillColor = categoryColors[i]};
             plot.Legend.ManualItems.Add(item);
         }
 
@@ -109,11 +114,11 @@ public static class PlotService
 
             // Map the value to a color in the palette
             var normalizedValue = (value - minValue) / (maxValue - minValue);
-            var colorIndex = (int)(normalizedValue * 4);
+            var colorIndex = (int) (normalizedValue * 4);
 
             var barColor = value < 0 ? amberPalette.GetColor(colorIndex) : frostPalette.GetColor(colorIndex);
 
-            Bar bar = new(){ Value = value, Position = i, FillColor = barColor };
+            Bar bar = new() {Value = value, Position = i, FillColor = barColor};
 
             plot.Add.Bar(bar);
         }
@@ -168,7 +173,7 @@ public static class PlotService
         plot.Title("Members Meeting Attendance");
 
         // Y Axis whole numbers only and start from 0   
-        var tickGen = new ScottPlot.TickGenerators.NumericAutomatic{ IntegerTicksOnly = true };
+        var tickGen = new ScottPlot.TickGenerators.NumericAutomatic {IntegerTicksOnly = true};
         plot.Axes.Left.TickGenerator = tickGen;
 
         var maxAttendance = membersMeetings.Select(x => x.MembersAttended.Count).Max();
@@ -181,15 +186,13 @@ public static class PlotService
         plot.SavePng(filePath, 1800, 800);
     }
 
-    // ToDo: Add gender splits
-    // ToDo: Add Event Type Legend
-    private static void PlotTemporalAttendance(List<Event> events, string plotFolder)
+    private static void PlotAttendanceByType(List<Event> events, string plotFolder)
     {
         var filteredEvents = events.Where(e => e.MembersAttended.Any()
                                                && e.Date > DateTime.Today.AddDays(-90)
-                                               && e.Date<= DateTime.Now).ToList();
+                                               && e.Date <= DateTime.Now).ToList();
         var xs = filteredEvents.Select(e => e.Date.ToOADate()).ToArray();
-        var ys = filteredEvents.Select(e => (double)e.MembersAttended.Count).ToArray();
+        var ys = filteredEvents.Select(e => (double) e.MembersAttended.Count).ToArray();
 
         var plot = new ScottPlot.Plot();
 
@@ -204,32 +207,170 @@ public static class PlotService
             {
                 x++;
             }
-            
+
             takenXs.Add(x);
-            
+
             var y = ys[i];
 
             var bar = plot.Add.Bar(x, y);
             bar.Color = TagsToColour(filteredEvents[i].Tags);
-            
-            var text = plot.Add.Text(filteredEvents[i].Name ?? "", x-0.5, y+1);
+
+            var text = plot.Add.Text(filteredEvents[i].Name ?? "", x - 0.5, y + 1);
             text.LabelRotation = -60;
         }
-        
+
         AddTagsLegend(plot);
 
         plot.Axes.DateTimeTicksBottom();
-        
+
         plot.Title("Event Attendance Over Time");
         plot.YLabel("Number of Attendees");
         plot.XLabel("Date");
-        
+
         plot.Axes.Margins(bottom: 0, top: .3);
-        
+
         var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
         var filePath = Path.Combine(plotFolder, $"events_timeline_{formattedDate}.png");
 
         plot.SavePng(filePath, 1800, 800);
+    }
+
+    private static void PlotAttendanceByGender(List<Event> events, string plotFolder, List<Member> members)
+    {
+        var filteredEvents = events
+            .Where(e => e.MembersAttended.Any()
+                                               && e.Date > DateTime.Today.AddDays(-90)
+                                               && e.Date <= DateTime.Now)
+            .OrderBy(e => e.Date)
+            .ToList();
+        var xs = filteredEvents.Select(e => e.Date.ToOADate()).ToArray();
+
+        var malesCount = filteredEvents.Select(e => GetAttendanceByGender(e, Gender.Male, members)).ToArray();
+        var femalesCount = filteredEvents.Select(e => GetAttendanceByGender(e, Gender.Female, members)).ToArray();
+        var nbsCount = filteredEvents.Select(e => GetAttendanceByGender(e, Gender.NonBinary, members)).ToArray();
+        var unknownsCount = filteredEvents.Select(e => GetAttendanceByGender(e, Gender.Unknown, members)).ToArray();
+
+        var maleBars = new List<Bar>();
+        var femaleBars = new List<Bar>();
+        var nbBars = new List<Bar>();
+        var unknownBars = new List<Bar>();
+        var borderbars = new List<Bar>();
+        var labels = new List<Text>();
+
+        var plot = new Plot();
+
+        const double width = 0.4;
+
+        // Helps us to avoid overlapping labels
+        var prevx = 0.0;
+
+        for (var i = 0; i < xs.Length; i++)
+        {
+            var x = xs[i];
+
+            if (x < prevx +2)
+            {
+                x = prevx + 2;
+            }
+            
+            prevx = x;
+
+            var males = malesCount[i];
+            var bar = new Bar
+            {
+                Position = x - width,
+                Value = malesCount[i],
+                Size = width,
+                FillColor = Colors.C0
+            };
+            maleBars.Add(bar);
+
+            var females = femalesCount[i];
+            bar = new Bar()
+            {
+                Position = x,
+                Value = females,
+                Size = width,
+                FillColor = Colors.C1
+            };
+            femaleBars.Add(bar);
+
+            var nbs = nbsCount[i];
+            bar = new Bar()
+            {
+                Position = x + width,
+                Value = nbs,
+                Size = width,
+                FillColor = Colors.C2
+            };
+            nbBars.Add(bar);
+
+            var unknowns = unknownsCount[i];
+            bar = new Bar()
+            {
+                Position = x + 2 * width,
+                Value = unknowns,
+                Size = width,
+                FillColor = Colors.C3
+            };
+            unknownBars.Add(bar);
+
+            // get higher of the  bars
+            var max = new[] {males, females, nbs, unknowns}.Max();
+
+            bar = new Bar()
+            {
+                Position = x + 0.15,
+                Value = max,
+                Size = width * 4,
+                FillColor = Colors.Beige
+            };
+            borderbars.Add(bar);
+
+            var text = new Text
+            {
+                Location = new Coordinates(x - width, max + 0.5),
+                LabelText = filteredEvents[i].Name ?? "",
+            };
+
+            labels.Add(text);
+        }
+
+        // Plot after everything's been calculated so I can control the layers
+        plot.Add.Bars(borderbars);
+        plot.Add.Bars(maleBars);
+        plot.Add.Bars(femaleBars);
+        plot.Add.Bars(nbBars);
+        plot.Add.Bars(unknownBars);
+
+        // Wonky, but I'm tired- I can't seem to add a list of labels like I could with the bars
+        labels.ForEach(l =>
+        {
+            var label = plot.Add.Text(l.LabelText, l.Location);
+            label.LabelRotation = -60;
+        });
+
+        AddGenderLegend(plot);
+
+        plot.Axes.DateTimeTicksBottom();
+
+        plot.Title("Event Attendance Over Time");
+        plot.YLabel("Number of Attendees");
+        plot.XLabel("Date");
+
+        plot.Axes.Margins(bottom: 0, top: .3);
+
+        var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
+        var filePath = Path.Combine(plotFolder, $"events_timeline_by_gender{formattedDate}.png");
+
+        plot.SavePng(filePath, 1800, 800);
+    }
+
+    private static int GetAttendanceByGender(Event ev, Gender gender, List<Member> members)
+    {
+        return ev.MembersAttended
+            .Select(x => members.Single(m => m.Id == x))
+            .Count(m => m.Gender == gender);
     }
 
     private static void FormatAxes(this Plot plot)
@@ -240,7 +381,7 @@ public static class PlotService
         plot.Axes.Bottom.TickLabelStyle.Alignment = Alignment.MiddleRight;
         plot.Axes.Bottom.MinimumSize = 200;
 
-        var tickGen = new ScottPlot.TickGenerators.NumericAutomatic{ IntegerTicksOnly = true };
+        var tickGen = new ScottPlot.TickGenerators.NumericAutomatic {IntegerTicksOnly = true};
         plot.Axes.Left.TickGenerator = tickGen;
     }
 
@@ -297,7 +438,22 @@ public static class PlotService
             new() {LabelText = "Training", FillColor = Colors.C4},
             new() {LabelText = "Other", FillColor = Colors.C5},
         ];
-        
+
+        plot.ShowLegend(items, Alignment.UpperRight);
+    }
+
+    private static void AddGenderLegend(Plot plot)
+    {
+        plot.Legend.IsVisible = true;
+
+        List<LegendItem> items =
+        [
+            new() {LabelText = "Male", FillColor = Colors.C0},
+            new() {LabelText = "Female", FillColor = Colors.C1},
+            new() {LabelText = "Non-Binary", FillColor = Colors.C2},
+            new() {LabelText = "Unknown", FillColor = Colors.C3},
+        ];
+
         plot.ShowLegend(items, Alignment.UpperRight);
     }
 }
