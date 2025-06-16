@@ -35,14 +35,21 @@ public record Member
                 .Select(element => element.GetProperty("id").GetString())
                 .ToList());
 
-        var genderString = jsonElement.GetProperty("properties")
-            .GetProperty("Gender")
-            .GetProperty("select")
-            .GetProperty("name")
-            .ToString()
-            .Replace("-", string.Empty);
+        try
+        {
+            var genderString = jsonElement.GetProperty("properties")
+                .GetProperty("Gender")
+                .GetProperty("select")
+                .GetProperty("name")
+                .ToString()
+                .Replace("-", string.Empty);
 
-        Gender = Enum.TryParse(genderString, true, out Gender gender) ? gender : Gender.Unknown;
+            Gender = Enum.TryParse(genderString, true, out Gender gender) ? gender : Gender.Unknown;
+        }
+        catch
+        {
+            Gender = Gender.Unknown;
+        }
     }
 }
 

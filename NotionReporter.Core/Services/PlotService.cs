@@ -315,13 +315,13 @@ public static class PlotService
             };
             unknownBars.Add(bar);
 
-            // get higher of the  bars
-            var max = new[] {males, females, nbs, unknowns}.Max();
+            // var max = new[] {males, females, nbs, unknowns}.Max();
+            var tot = males + females + nbs + unknowns;
 
             bar = new Bar()
             {
                 Position = x + 0.15,
-                Value = max,
+                Value = tot,
                 Size = width * 4,
                 FillColor = Colors.Beige
             };
@@ -329,7 +329,7 @@ public static class PlotService
 
             var text = new Text
             {
-                Location = new Coordinates(x - width, max + 0.5),
+                Location = new Coordinates(x - width, tot + 0.5),
                 LabelText = filteredEvents[i].Name ?? "",
             };
 
